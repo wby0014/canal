@@ -19,7 +19,7 @@ public interface CanalInstance extends CanalLifeCycle {
 
     String getDestination();
 
-    // 数据源接入，模拟slave协议和master进行交互，协议解析
+    // 数据源接入，模拟slave协议和master进行交互，协议解析，与mysql-master建立连接，发送dump请求，创建DirectLogFetcher日志获取器循环读取binlog日志数据字节流
     CanalEventParser getEventParser();
 
     // parser和store链接器，进行数据过滤，加工，分发的工作

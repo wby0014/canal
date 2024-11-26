@@ -181,7 +181,7 @@ public abstract class AbstractEventParser<EVENT> extends AbstractCanalLifeCycle 
 
                                     if (entry != null) {
                                         exception = null; // 有正常数据流过，清空exception
-                                        transactionBuffer.add(entry);
+                                        transactionBuffer.add(entry);// 将解析后的binlog数据放进缓冲区中
                                         // 记录一下对应的positions
                                         this.lastPosition = buildLastPosition(entry);
                                         // 记录一下最后一次有数据的时间
