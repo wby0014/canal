@@ -38,8 +38,8 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
     private static final long INIT_SQEUENCE = -1;
     private int               bufferSize    = 16 * 1024;
     private int               bufferMemUnit = 1024;                         // memsize的单位，默认为1kb大小
-    private int               indexMask;
-    private Event[]           entries;
+    private int               indexMask;  // 用于对putSequence、getSequence、ackSequence进行取余操作，前面已经介绍过canal通过位操作进行取余，其值为bufferSize-1
+    private Event[]           entries;   // 环形队列底层基于的Event[]数组，队列大小就是bufferSize
 
     // 记录下put/get/ack操作的三个下标
     private AtomicLong        putSequence   = new AtomicLong(INIT_SQEUENCE); // 代表当前put操作最后一次写操作发生的位置
@@ -83,6 +83,12 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
         cleanAll();
     }
 
+    /**
+     * 不带timeout超时参数的put方法，会一直进行阻塞，直到有足够的空间可以放入
+     * @param data
+     * @throws InterruptedException
+     * @throws CanalStoreException
+     */
     public void put(List<Event> data) throws InterruptedException, CanalStoreException {
         if (data == null || data.isEmpty()) {
             return;
@@ -108,6 +114,15 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
         }
     }
 
+    /**
+     * 带timeout参数超时参数的put方法，如果超过指定时间还未put成功，会抛出InterruptedException
+     * @param data
+     * @param timeout
+     * @param unit
+     * @return
+     * @throws InterruptedException
+     * @throws CanalStoreException
+     */
     public boolean put(List<Event> data, long timeout, TimeUnit unit) throws InterruptedException, CanalStoreException {
         if (data == null || data.isEmpty()) {
             return true;
@@ -138,6 +153,12 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
         }
     }
 
+    /**
+     * tryPut方法每次只是尝试放入数据，立即返回true或者false，不会阻塞
+     * @param data
+     * @return
+     * @throws CanalStoreException
+     */
     public boolean tryPut(List<Event> data) throws CanalStoreException {
         if (data == null || data.isEmpty()) {
             return true;
@@ -171,6 +192,13 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
 
     /**
      * 执行具体的put操作
+     * 1、将新插入的event数据赋值到Event[]数组的正确位置上，就算完成了插入
+     *
+     * 2、当新插入的event记录数累加到putSequence上
+     *
+     * 3、累加新插入的event的大小到putMemSize上
+     *
+     * 4、调用notEmpty.signal()方法，通知队列中有数据了，如果之前有client获取数据处于阻塞状态，将会被唤醒
      */
     private void doPut(List<Event> data) {
         long current = putSequence.get();
@@ -187,6 +215,7 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
         if (batchMode.isMemSize()) {
             long size = 0;
             for (Event event : data) {
+                // 计算每个event占用的内存大小
                 size += calculateSize(event);
             }
 
@@ -197,6 +226,18 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
         notEmpty.signal();
     }
 
+    /**
+     * 获取binlog数据
+     *
+     * Put操作是canal parser模块解析binlog事件，并经过sink模块过滤后，放入到store模块中，也就是说Put操作实际上是canal内部调用。
+     * Get操作(以及ack、rollback)则不同，其是由client发起的网络请求，server端通过对请求参数进行解析，最终调用CanalEventStore模块中定义的对应方法
+     *
+     * @param start
+     * @param batchSize
+     * @return
+     * @throws InterruptedException
+     * @throws CanalStoreException
+     */
     public Events<Event> get(Position start, int batchSize) throws InterruptedException, CanalStoreException {
         final ReentrantLock lock = this.lock;
         lock.lockInterruptibly();
@@ -254,6 +295,22 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
         }
     }
 
+    /**
+     * 1、确定从哪个位置开始获取数据
+     *
+     * 2、根据batchMode是MEMSIZE还是ITEMSIZE，通过不同的方式来获取数据
+     *
+     * 3、设置PositionRange，表示获取到的event列表开始和结束位置
+     *
+     * 4、设置ack点
+     *
+     * 5、累加getSequence，getMemSize值
+     *
+     * @param start
+     * @param batchSize
+     * @return
+     * @throws CanalStoreException
+     */
     private Events<Event> doGet(Position start, int batchSize) throws CanalStoreException {
         LogPosition startPosition = (LogPosition) start;
 
@@ -479,8 +536,14 @@ public class MemoryEventStoreWithBuffer extends AbstractCanalStoreScavenge imple
 
     /**
      * 查询是否有空位
+     * "putSequence + need_put_events_size"的结果为添加数据后的putSequence的最终位置值，
+     * 要把这个作为预判断条件，其减去ackSequence，如果大于bufferSize，则不能插入数据。需要等待有足够的空间，或者抛出异常
      */
     private boolean checkFreeSlotAt(final long sequence) {
+        // 默认的bufferSize设置大小为16384，即有16384个slot，每个slot可以存储一个event，因此canal默认最多缓存16384个event。
+        // 从来另一个角度出发，这意味着putSequence最多比ackSequence可以大16384，不能超过这个值。
+        // 如果超过了，就意味着尚未没有被消费的数据被覆盖了，相当于丢失了数据。
+        // 因此，如果Put操作满足以下条件(putSequence + need_put_events_size)- ackSequence > bufferSize时，是不能新加入数据的
         final long wrapPoint = sequence - bufferSize;
         final long minPoint = getMinimumGetOrAck();
         if (wrapPoint > minPoint) { // 刚好追上一轮
