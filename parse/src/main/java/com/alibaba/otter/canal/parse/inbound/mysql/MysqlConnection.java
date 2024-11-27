@@ -28,10 +28,12 @@ import com.taobao.tddl.dbsync.binlog.LogEvent;
 import com.taobao.tddl.dbsync.binlog.LogPosition;
 import com.taobao.tddl.dbsync.binlog.event.FormatDescriptionLogEvent;
 
+/**
+ * 对driver模块的MysqlConnector进行封装
+ */
 public class MysqlConnection implements ErosaConnection {
 
     private static final Logger logger  = LoggerFactory.getLogger(MysqlConnection.class);
-
     private MysqlConnector      connector;
     private long                slaveId;
     private Charset             charset = Charset.forName("UTF-8");
@@ -68,11 +70,23 @@ public class MysqlConnection implements ErosaConnection {
         return connector.isConnected();
     }
 
+    /**
+     *  parser模块执行查询sql的通用方法
+     *
+     * @param cmd
+     * @return
+     * @throws IOException
+     */
     public ResultSetPacket query(String cmd) throws IOException {
         MysqlQueryExecutor exector = new MysqlQueryExecutor(connector);
         return exector.query(cmd);
     }
 
+    /**
+     * parser模块执行更新sql的通用方法
+     * @param cmd
+     * @throws IOException
+     */
     public void update(String cmd) throws IOException {
         MysqlUpdateExecutor exector = new MysqlUpdateExecutor(connector);
         exector.update(cmd);
@@ -236,7 +250,7 @@ public class MysqlConnection implements ErosaConnection {
     }
 
     /**
-     * 获取一下binlog format格式
+     * 获取一下binlog format格式， 值为STATEMENT,MIXED,ROW的一种
      */
     private void loadBinlogFormat() {
         ResultSetPacket rs = null;
@@ -260,6 +274,13 @@ public class MysqlConnection implements ErosaConnection {
 
     /**
      * 获取一下binlog image格式
+     * ROW模式下，即使我们只更新了一条记录的其中某个字段，也会记录每个字段变更前后的值，binlog日志就会变大，
+     * 带来磁盘IO上的开销，以及网络开销。mysql提供了参数binlog_row_image，来控制是否需要记录每一行的变更，其有3个值：
+     *
+     * FULL : 记录列的所有修改
+     * MINIMAL ：只记录修改的列。
+     * NOBLOB :如果是text类型或clob字段，不记录 这些日志
+     *
      */
     private void loadBinlogImage() {
         ResultSetPacket rs = null;
@@ -286,6 +307,9 @@ public class MysqlConnection implements ErosaConnection {
      * 获取主库checksum信息
      * https://dev.mysql.com/doc/refman/5.6/en/replication-options
      * -binary-log.html#option_mysqld_binlog-checksum
+     *
+     * mysql 主从复制(replication) 同步可能会出现数据不一致，mysql 5.6 版本中加入了 replication event checksum(主从复制事件校验)功能。
+     * 默认开启。如果开启，每个binlog后面会多出4个字节，为CRC32校验值。目前cancal支持解析CRC32的值，但不会进行校验
      */
     private void loadBinlogChecksum() {
         ResultSetPacket rs = null;

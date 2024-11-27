@@ -21,7 +21,13 @@ import com.alibaba.otter.canal.parse.driver.mysql.utils.PacketManager;
 
 /**
  * 基于mysql socket协议的链接实现
- * 
+ *
+ * canal的driver模块实际上就是一个手功编写的一个mysql客户端。
+ *
+ * 要编写这样的一个客户端并不容易，需要参考Mysql client/server通信协议，
+ * 以下是地址：
+ *  https://dev.mysql.com/doc/internals/en/client-server-protocol.html
+ *
  * @author jianghang 2013-2-18 下午09:22:30
  * @version 1.0.1
  */

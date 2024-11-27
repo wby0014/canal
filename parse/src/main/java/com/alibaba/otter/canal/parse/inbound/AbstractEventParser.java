@@ -36,6 +36,10 @@ import com.alibaba.otter.canal.sink.exception.CanalSinkException;
 
 /**
  * 抽象的EventParser, 最大化共用mysql/oracle版本的实现
+ *
+ * 分析canal是如何使用driver模块的，主要就是看其他模块使用driver模块执行了哪些查询和更新sql。
+ * 由于canal的作用主要是解析binlog，因此执行的大多都是binlog解析过程中所需要使用的sql语句。
+ * 显然parser模块需要依靠driver模块来获取原始的binlog二进制字节流，因此相关sql都在driver模块中
  * 
  * @author jianghang 2013-1-20 下午08:10:25
  * @version 1.0.0

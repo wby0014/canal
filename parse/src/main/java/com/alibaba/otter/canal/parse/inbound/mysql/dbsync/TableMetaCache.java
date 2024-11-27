@@ -58,6 +58,7 @@ public class TableMetaCache {
         });
 
         try {
+            // 猜测应该是判断是否数据库是否是是否是阿里云上提供的rds。
             ResultSetPacket packet = connection.query("show global variables  like 'rds\\_%'");
             if (packet.getFieldValues().size() > 0) {
                 isOnRDS = true;
@@ -101,6 +102,15 @@ public class TableMetaCache {
         tableMetaCache.clear();
     }
 
+    /**
+     * 查看库表的字段定义
+     * 原始的binlog二进制流中，并不包含字段的名称，而canal提供个client订阅的event中包含了字段名称，实际上就是通过这个命令来获得的。
+     * parser模块的TableMetaCache类就是用于缓存表字段信息。当表结构变更后，也会跟着自动更新
+     *
+     * @param fullname
+     * @return
+     * @throws IOException
+     */
     private TableMeta getTableMeta0(String fullname) throws IOException {
         ResultSetPacket packet = connection.query("desc " + fullname);
         return new TableMeta(fullname, parserTableMeta(packet));

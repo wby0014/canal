@@ -571,6 +571,7 @@ public class MysqlEventParser extends AbstractMysqlEventParser implements CanalE
 
     /**
      * 查询当前db的serverId信息
+     * mysql主从同步时，每个机器都要设置一个唯一的server_id，canal连接到某个mysql实例之后，会查询这个serverId
      */
     private Long findServerId(MysqlConnection mysqlConnection) {
         try {
@@ -587,6 +588,7 @@ public class MysqlEventParser extends AbstractMysqlEventParser implements CanalE
 
     /**
      * 查询当前的binlog位置
+     * mysql binlog是多文件存储，唯一确定一个binlog位置需要通过：binlog file + binlog position。show master status可以获得当前的binlog位置
      */
     private EntryPosition findEndPosition(MysqlConnection mysqlConnection) {
         try {
@@ -603,7 +605,7 @@ public class MysqlEventParser extends AbstractMysqlEventParser implements CanalE
     }
 
     /**
-     * 查询当前的binlog位置
+     * 查询当前的binlog位置， 查询最早的binlog位置
      */
     private EntryPosition findStartPosition(MysqlConnection mysqlConnection) {
         try {
@@ -622,6 +624,13 @@ public class MysqlEventParser extends AbstractMysqlEventParser implements CanalE
 
     /**
      * 查询当前的slave视图的binlog位置
+     *
+     * 主要用于判断MySQL复制同步状态，这个命令的内容比较多，这里不演示。主要是关注两个线程的状态：
+     *
+     * Slave_IO_Running线程：负责把主库的bin日志(Master_Log)内容，投递到从库的中继日志上(Relay_Log)
+     * Slave_SQL_Running线程：负责把中继日志上的语句在从库上执行一遍
+     * 以及Seconds_Behind_Master的值，其表示从库落后主库的时间，如果为0则表示没有延迟
+     *
      */
     @SuppressWarnings("unused")
     private SlaveEntryPosition findSlavePosition(MysqlConnection mysqlConnection) {
