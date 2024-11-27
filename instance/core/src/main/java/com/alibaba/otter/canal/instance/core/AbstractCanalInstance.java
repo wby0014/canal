@@ -47,6 +47,7 @@ public class AbstractCanalInstance extends AbstractCanalLifeCycle implements Can
 
     @Override
     public boolean subscribeChange(ClientIdentity identity) {
+        // client通过canalConnector订阅的时候，会更新一下filter
         // 主要是更新一下eventParser中的filter
         // 关于filter，进行一下补充说明，filter规定了需要订阅哪些库，哪些表。在服务端和客户端都可以设置，客户端的配置会覆盖服务端的配置
         if (StringUtils.isNotEmpty(identity.getFilter())) {

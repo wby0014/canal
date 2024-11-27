@@ -7,7 +7,8 @@ import com.alibaba.otter.canal.protocol.exception.CanalClientException;
 
 /**
  * canal数据操作客户端
- * 
+ * 主要和CanalServerWithNetty建立连接，然后进行数据操作
+ *
  * @author zebin.xuzb @ 2012-6-19
  * @author jianghang
  * @version 1.0.0

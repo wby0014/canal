@@ -74,7 +74,7 @@ public class SessionHandler extends SimpleChannelHandler {
                                 runningMonitor.start();
                             }
                         }
-
+                        // 接收客户端订阅请求
                         embeddedServer.subscribe(clientIdentity);
                         ctx.setAttachment(clientIdentity);// 设置状态数据
                         NettyUtils.ack(ctx.getChannel(), null);

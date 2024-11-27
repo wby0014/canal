@@ -151,7 +151,7 @@ public class CanalServerWithEmbedded extends AbstractCanalLifeCycle implements C
             logger.info("subscribe successfully, use last cursor position:{} ", clientIdentity, position);
         }
 
-        // 通知下订阅关系变化
+        // 通知下订阅关系变化， 主要是更新instance的parser中的filter
         canalInstance.subscribeChange(clientIdentity);
     }
 

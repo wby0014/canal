@@ -84,6 +84,7 @@
 		<!-- 解析过滤处理 -->
 		<property name="eventFilter">
 			<bean class="com.alibaba.otter.canal.filter.aviater.AviaterRegexFilter" >
+				<!-- 用于配置黑名单，订阅哪些库哪些表，默认值：订阅所有库所有表 -->
 				<constructor-arg index="0" value="${canal.instance.filter.regex:.*\..*}" />
 			</bean>
 		</property>
